@@ -1,10 +1,10 @@
 {
-  "name": "blank-cloud-sandbox-template",
+  "name": "@sozdev/bd",
   "type": "module",
   "version": "1.0.0",
   "packageManager": "yarn@3.6.0",
   "description": "The official Blank Cloud Sandbox Template by the CodeSandbox team",
-  "author": "Ives van Hoorne",
+  "author": "Alexander Semyenov <semyenov@hotmail.com>",
   "license": "MIT",
   "homepage": "https://github.com/codesandbox-app/static-template#readme",
   "repository": {
@@ -41,12 +41,12 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "consola": "^3.2.1",
+    "consola": "^3.2.2",
     "natural": "^6.5.0",
     "readline": "^1.3.0"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "^0.39.5",
+    "@antfu/eslint-config": "^0.39.6",
     "@rollup/plugin-alias": "^5.0.0",
     "@rollup/plugin-commonjs": "^25.0.2",
     "@rollup/plugin-json": "^6.0.0",
@@ -64,6 +64,6 @@
     "rollup-plugin-esbuild": "^5.0.0",
     "serve": "^11.2.0",
     "tslib": "^2.6.0",
-    "typescript": "^5.1.3"
+    "typescript": "^5.1.5"
   }
 }
