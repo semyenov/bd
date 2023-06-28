@@ -1,6 +1,6 @@
-import { resolve } from 'node:path'
 import { createReadStream } from 'node:fs'
 import { createInterface } from 'node:readline'
+import { resolve } from 'node:path'
 
 class TrieNode {
   children: Map<string, TrieNode>
@@ -14,46 +14,38 @@ class TrieNode {
 
 class Trie {
   root: TrieNode
-
   constructor() {
     this.root = new TrieNode()
   }
 
   addWord(word: string): void {
-    let currentNode = this.root
+    let node = this.root
     for (const char of word) {
-      if (!currentNode.children.has(char))
-        currentNode.children.set(char, new TrieNode())
-
-      currentNode = currentNode.children.get(char)!
+      if (!node.children.has(char))
+        node.children.set(char, new TrieNode())
+      node = node.children.get(char)!
     }
-    currentNode.endOfWord = true
+    node.endOfWord = true
   }
 
   searchWord(word: string): boolean {
-    let currentNode = this.root
+    let node = this.root
     for (const char of word) {
-      if (!currentNode.children.has(char))
+      if (!node.children.has(char))
         return false
-
-      currentNode = currentNode.children.get(char)!
+      node = node.children.get(char)!
     }
-    return currentNode.endOfWord
+    return node.endOfWord
   }
 }
 
-async function processLineByLine(path: string) {
+async function createDictionary(path: string) {
   const fileStream = createReadStream(resolve(path))
-  const rl = createInterface({
-    input: fileStream,
-  })
-
+  const readline = createInterface({ input: fileStream })
   const trie = new Trie()
-
-  for await (const line of rl)
-    trie.addWord(line.trim())
-
+  for await (const line of readline)
+    trie.addWord(line.trim().toUpperCase())
   return trie
 }
 
-export { Trie, processLineByLine }
+export { Trie, createDictionary }

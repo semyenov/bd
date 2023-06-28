@@ -1,35 +1,20 @@
 import { consola } from 'consola'
-import { Bot, Game, processLineByLine } from './lib'
+import { Bot, Game, createDictionary } from './lib'
+
+const logger = consola.create({ defaults: { tag: 'main' } })
 
 async function main() {
-  const dictionary = await processLineByLine('./dictionary.txt')
+  const dictionary = await createDictionary('./dictionary.txt')
 
   const bot1 = new Bot('Bot 1', dictionary)
   const bot2 = new Bot('Bot 2', dictionary)
 
   const game = new Game([bot1, bot2], 5, 'балда')
 
-  consola.log('Initial state:', game.board)
-  while (!game.gameOverFlag()) {
-    const nextPlayer = game.getNextPlayer()
-    const move = await nextPlayer.makeMove(game)
-
-    consola.log('\nTURN', game.turn)
-
-    if (move) {
-      consola.log(nextPlayer.name, 'made a move:', move.letter, 'at', move.x, move.y)
-      const success = game.addLetter(move.player, move.x, move.y, move.letter)
-
-      if (!success)
-        consola.log('INVALID MOVE!')
-    }
-
-    consola.log('Board state:', game.board)
-  }
-
-  consola.log(`\nGame over! The winner is ${game.getWinner().name}`)
+  for await (const move of game.next())
+    consola.log(move)
 }
 
-main()
-  .catch(err => consola.error(err))
-  .finally(() => process.exit(0))
+main().catch((err) => {
+  logger.error(err)
+})

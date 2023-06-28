@@ -1,38 +1,87 @@
 import { Metaphone } from 'natural/lib/natural/phonetics'
 import { WordTokenizer } from 'natural/lib/natural/tokenizers'
-
 import type { Game } from './game'
-import { Move, Player } from './game'
 import type { Trie } from './dictionary'
 import { EMPTY_MARK } from './utils'
 
-// tokenizer uses to create strange
-const tokenizer = new WordTokenizer({ pattern: /(.{2})/g })
+const tokenizer = new WordTokenizer()
 const metaphone = Metaphone
 
-type MoveStrategy = 'easy' | 'hard' | 'choke'
+class Move {
+  player: Player
+  letter: string
+  x: number
+  y: number
+
+  constructor(player: Player, x: number, y: number, letter: string) {
+    this.player = player
+    this.x = x
+    this.y = y
+    this.letter = letter
+  }
+}
+
+class Player {
+  trie: Trie
+
+  score: number
+  name: string
+
+  constructor(name: string, trie: Trie) {
+    // Initializes a trie for the player
+    this.trie = trie
+
+    this.score = 0
+    this.name = name
+  }
+
+  // makeMove should make decision based on the game state
+  // and return a Move object
+  makeMove(game: Game): Promise<Move | null> {
+    // For simplicity, let's assume that the player choose a random empty cell and add a random letter
+    // Generate a random position x,y on the board
+    let x, y
+    do {
+      x = Math.floor(Math.random() * game.size)
+      y = Math.floor(Math.random() * game.size)
+    } while (game.board[x][y] !== EMPTY_MARK)
+
+    // Generate a random letter
+    const letter = String.fromCharCode('А'.charCodeAt(0) + Math.floor(Math.random() * 33))
+    return Promise.resolve(new Move(this, x, y, letter))
+  }
+
+  getLetters(): string[] {
+    return [...this.trie.root.children.keys()]
+  }
+}
+
+type Strategy = 'easy' | 'hard' | 'choke'
 
 class Bot extends Player {
   constructor(name: string, trie: Trie) {
     super(name, trie)
   }
 
+  /**
+   * Makes a move in the game using the specified strategy.
+   *
+   * @param {Game} game - The game object.
+   * @param {Strategy} [strategy='easy'] - The move strategy to use (default: 'easy').
+   * @return {Promise<Move | null>} A promise that resolves to the chosen move, or null if no move was made.
+   */
   makeMove(
     game: Game,
-    strategy: MoveStrategy = 'easy',
+    strategy: Strategy = 'hard',
   ): Promise<Move | null> {
     const tokenizedBoard
       = tokenizer.tokenize(game.board.join(' ').toUpperCase()) || []
 
     switch (strategy) {
-      case 'easy':
-        return this.chooseRandomMove(game, tokenizedBoard)
-      case 'hard':
-        return this.chooseBestMove(game, tokenizedBoard)
-      case 'choke':
-        return this.chooseChokerMove(game, tokenizedBoard)
-      default:
-        throw new Error('Invalid move strategy')
+      case 'easy': return this.chooseRandomMove(game, tokenizedBoard)
+      case 'hard': return this.chooseBestMove(game, tokenizedBoard)
+      case 'choke': return this.chooseChokerMove(game, tokenizedBoard)
+      default: throw new Error('Invalid move strategy')
     }
   }
 
@@ -62,8 +111,6 @@ class Bot extends Player {
     if (!randomSpot)
       return null
 
-    const { x, y } = randomSpot
-
     const letterIndex = Math.floor(Math.random() * 26)
     const similarWords = tokenizedBoard.filter(word =>
       metaphone.compare(
@@ -72,40 +119,46 @@ class Bot extends Player {
       ),
     )
 
-    const letter
-      = similarWords.length > 0 ? similarWords[0][0] : String.fromCharCode(65 + letterIndex)
+    const letter = similarWords.length > 0
+      ? similarWords[0][0]
+      : String.fromCharCode(65 + letterIndex)
+    const { x, y } = randomSpot
 
     return new Move(this, x, y, letter || EMPTY_MARK)
   }
 
   async chooseBestMove(game: Game, tokenizedBoard: string[]): Promise<Move | null> {
-    let bestMove: Move | null = null
-    let bestScore = -Infinity
     let [x, y] = [0, 0]
 
-    for (const [l, n] of this.trie.root.children.entries()) {
-      let score = 0
-      for (const [ll, nn] of n.children.entries()) {
-        for (const word of tokenizedBoard) {
-          if (game.board[x][y] === EMPTY_MARK) {
-            const lettersMetaphoneCode = tokenizer.tokenize(l + ll)
-            if (metaphone.compare(metaphone.process(word), lettersMetaphoneCode))
-              score += word.length
+    let bestMove: Move | null = null
+    let bestScore = -Infinity
+    let score = 0
 
-            if (nn.endOfWord)
-              score += word.length * 2
-          }
+    for (const [letter, node] of this.trie.root.children.entries()) {
+      if (game.board[x][y] !== letter)
+        continue
+
+      for (const [nextLetter, nextNode] of node.children.entries()) {
+        const lettersMetaphoneCode = metaphone.process(letter + nextLetter)
+        for (const word of tokenizedBoard) {
+          if (metaphone.compare(metaphone.process(word), lettersMetaphoneCode))
+            score += word.length
+        }
+
+        if (nextNode.endOfWord) {
+          if (game.board[x][y] === EMPTY_MARK)
+            score += 2
 
           if (score > bestScore) {
             bestScore = score
-            bestMove = new Move(this, x, y, l)
+            bestMove = new Move(this, x, y, letter)
           }
-
-          score = 0
         }
-        y++
+
+        y += 1
       }
-      x++
+
+      x += 1
     }
 
     return bestMove
@@ -188,12 +241,12 @@ class Bot extends Player {
   }
 
   /**
- * Evaluates the score of the given board based on the game rules.
- *
- * @param {Game} game - the game object with the board and its properties.
- * @param {string[]} tokenizedBoard - an array of words to search for on the board.
- * @return {number} the score of the board based on the found words.
- */
+  * Evaluates the score of the given board based on the game rules.
+  *
+  * @param {Game} game - the game object with the board and its properties.
+  * @param {string[]} tokenizedBoard - an array of words to search for on the board.
+  * @return {number} the score of the board based on the found words.
+  */
   evaluateBoard(game: Game, tokenizedBoard: string[]): number {
     let score = 0 // Initialize score to 0
 
@@ -220,4 +273,4 @@ class Bot extends Player {
   }
 }
 
-export { Bot }
+export { Move, Player, Bot }
