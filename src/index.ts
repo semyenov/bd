@@ -1,5 +1,5 @@
 import { consola } from 'consola'
-import { Bot, Game, createDictionary } from './lib'
+import { Bot, Game, createDictionary } from '@/lib'
 
 const logger = consola.create({ defaults: { tag: 'main' } })
 
@@ -15,6 +15,5 @@ async function main() {
     consola.log(move)
 }
 
-main().catch((err) => {
-  logger.error(err)
-})
+main()
+  .catch(logger.error)

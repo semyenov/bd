@@ -1,7 +1,3 @@
-import { createReadStream } from 'node:fs'
-import { createInterface } from 'node:readline'
-import { resolve } from 'node:path'
-
 class TrieNode {
   children: Map<string, TrieNode>
   endOfWord: boolean
@@ -39,13 +35,7 @@ class Trie {
   }
 }
 
-async function createDictionary(path: string) {
-  const fileStream = createReadStream(resolve(path))
-  const readline = createInterface({ input: fileStream })
-  const trie = new Trie()
-  for await (const line of readline)
-    trie.addWord(line.trim().toUpperCase())
-  return trie
+export {
+  Trie,
+  TrieNode,
 }
-
-export { Trie, createDictionary }

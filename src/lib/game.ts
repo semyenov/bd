@@ -2,50 +2,48 @@ import { consola } from 'consola'
 
 import type { Move, Player } from './player'
 
+import type { Position } from './utils'
 import { EMPTY_MARK } from './utils'
 
 class Game {
-  private _turn: number
+  private readonly _players: Player[]
 
-  size: number
-  players: Player[]
+  private _turn: number
+  private _playerId: Player['id'] | null
+
+  public readonly size: number
   board: string[][]
 
   get turn(): number {
     return this._turn
   }
 
+  get playerId(): Player['id'] | null {
+    return this._playerId
+  }
+
   constructor(players: Player[], size: number, word: string) {
     this._turn = 0 // Start with the first player
+    this._players = players
+    this._playerId = null
 
     this.size = size
-    this.players = players
-    this.board = Array(size)
-      .fill(EMPTY_MARK)
-      .map(() =>
-        Array(size).fill(EMPTY_MARK),
-      )
-
-    // setting up the starting word in the middle of the board
-    const x = Math.floor(size / 2)
-    const y = Math.floor(size / 2) - Math.floor(word.length / 2)
-    for (let j = 0; j < word.length; j++)
-      this.board[x][y + j] = word[j]
+    this.board = Game.createBoard(size, word)
   }
 
   /**
-* Asynchronously plays a game until it is over and declares the winner.
-*
-* @return {AsyncGenerator<void>} An async generator that yields nothing.
-* @throws {Error} If an invalid move is made.
-*/
+  * Asynchronously plays a game until it is over and declares the winner.
+  *
+  * @return {AsyncGenerator<void>} An async generator that yields nothing.
+  * @throws {Error} If an invalid move is made.
+  */
   async *next(): AsyncGenerator<Move> {
-    while (!this.isGameOver()) {
+    while (!this.isOver()) {
       let done = false
       const player = this.getNextPlayer()
 
       while (!done) {
-        const move = await player.makeMove(this)
+        const move = await player.move(this)
         if (move) {
           yield move
 
@@ -55,9 +53,17 @@ class Game {
       }
     }
 
-    const winner = this.getWinnerPlayer()
+    const winner = this.getWinner()
     consola.log(`And the winner is: ${winner}`)
   }
+
+  /**
+   * Creates a board of the specified size and optionally places a word on it.
+   *
+   * @param {number} size - The size of the board.
+   * @param {string} [word] - The word to be placed on the board. (optional)
+   * @return {string[][]} - The created board.
+   */
 
   /**
    * Adds a letter to the board at the given coordinates for the specified player.
@@ -103,7 +109,7 @@ class Game {
 
   // Returns which player's turn is it
   getNextPlayer(): Player {
-    return this.players[this._turn % this.players.length]!
+    return this._players[this._turn % this._players.length]!
   }
 
   /**
@@ -111,13 +117,13 @@ class Game {
   *
   * @return {Player} The player object with the highest score.
   */
-  getWinnerPlayer(): Player {
-    for (let i = 0; i < this.players.length - 1; i++) {
-      if (this.players[i]!.score > this.players[i + 1]!.score)
-        return this.players[i]
+  getWinner(): Player {
+    for (let i = 0; i < this._players.length - 1; i++) {
+      if (this._players[i]!.score > this._players[i + 1]!.score)
+        return this._players[i]
     }
 
-    return this.players[0]
+    return this._players[0]
   }
 
   /**
@@ -125,7 +131,7 @@ class Game {
   *
   * @return {boolean} True if the game is over, false otherwise.
   */
-  isGameOver(): boolean {
+  isOver(): boolean {
     // if the whole board is full, the game is over
     for (let i = 0; i < this.size; i++) {
       for (let j = 0; j < this.size; j++) {
@@ -135,6 +141,21 @@ class Game {
     }
 
     return true
+  }
+
+  static createBoard(size: number, word?: string): string[][] {
+    const board = Array.from({ length: size }, () => Array(size).fill(EMPTY_MARK))
+
+    if (word) {
+      const wordStart: Position = [
+        Math.floor(size / 2),
+        Math.floor(size / 2) - Math.floor(word.length / 2),
+      ]
+      for (let j = 0; j < word.length; j++)
+        board[wordStart[0]][wordStart[1] + j] = word[j]
+    }
+
+    return board
   }
 }
 
