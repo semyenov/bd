@@ -1,5 +1,4 @@
 import { consola } from 'consola'
-
 import type { Move, Player } from './player'
 
 import { EMPTY_MARK } from './utils'
