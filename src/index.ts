@@ -6,10 +6,10 @@ const logger = consola.create({ defaults: { tag: 'main' } })
 async function main() {
   const dictionary = await createDictionary('./dictionary.txt')
 
-  const bot1 = new Bot('Bot 1', dictionary)
-  const bot2 = new Bot('Bot 2', dictionary)
+  const bot1 = new Bot('player1', dictionary)
+  const bot2 = new Bot('player2', dictionary)
 
-  const game = new Game([bot1, bot2], 5, 'балда')
+  const game = new Game('game1', [bot1, bot2], 5, 'балда')
 
   for await (const move of game.next())
     consola.log(move)

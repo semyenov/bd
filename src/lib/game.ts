@@ -1,162 +1,156 @@
 import { consola } from 'consola'
 
-import type { Move, Player } from './player'
+import type { Player } from './player'
 
 import type { Position } from './utils'
-import { EMPTY_MARK } from './utils'
 
-class Game {
-  private readonly _players: Player[]
+const EMPTY = '_'
 
-  private _turn: number
-  private _playerId: Player['id'] | null
+class GameError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'GameError'
+  }
+}
 
-  public readonly size: number
-  board: string[][]
+interface Cell {
+  position: Position
+  letter: string
+  isEmpty: boolean
+}
 
-  get turn(): number {
-    return this._turn
+class Board {
+  private readonly _size: number
+  private _board: string[][]
+
+  private _emptyCells: number
+
+  get size(): number {
+    return this._size
   }
 
-  get playerId(): Player['id'] | null {
-    return this._playerId
+  get board(): string[][] {
+    return this._board
   }
 
-  constructor(players: Player[], size: number, word: string) {
-    this._turn = 0 // Start with the first player
-    this._players = players
-    this._playerId = null
-
-    this.size = size
-    this.board = Game.createBoard(size, word)
+  get isFull(): boolean {
+    return this._emptyCells <= 0
   }
 
-  /**
-  * Asynchronously plays a game until it is over and declares the winner.
-  *
-  * @return {AsyncGenerator<void>} An async generator that yields nothing.
-  * @throws {Error} If an invalid move is made.
-  */
-  async *next(): AsyncGenerator<Move> {
-    while (!this.isOver()) {
-      let done = false
-      const player = this.getNextPlayer()
+  constructor(size: number, word: string) {
+    this._size = size
+    this._emptyCells = size * size - word.length
 
-      while (!done) {
-        const move = await player.move(this)
-        if (move) {
-          yield move
+    this._board = Array.from(
+      { length: size },
+      () => Array(size).fill(EMPTY),
+    )
+    this.init(word)
+  }
 
-          this._turn += 1
-          done = this.addLetter(player, move.x, move.y, move.letter)
-        }
-      }
+  init(word: string) {
+    if (word) {
+      const wordStart: Position = [
+        Math.floor(this._size / 2),
+        Math.floor(this._size / 2) - Math.floor(word.length / 2),
+      ]
+      for (let j = 0; j < word.length; j++)
+        this.set(word[j], [wordStart[0], wordStart[1] + j])
     }
-
-    const winner = this.getWinner()
-    consola.log(`And the winner is: ${winner}`)
   }
 
-  /**
-   * Creates a board of the specified size and optionally places a word on it.
-   *
-   * @param {number} size - The size of the board.
-   * @param {string} [word] - The word to be placed on the board. (optional)
-   * @return {string[][]} - The created board.
-   */
+  set(letter: string, position: Position): boolean {
+    const cell = this.get(position)
+    if (cell && cell.letter === EMPTY) {
+      this._board[position[0]][position[1]] = letter
+      this._emptyCells--
 
-  /**
-   * Adds a letter to the board at the given coordinates for the specified player.
-   *
-   * @param {Player} player - The player who is making the move.
-   * @param {number} x - The x-coordinate of the position on the board.
-   * @param {number} y - The y-coordinate of the position on the board.
-   * @param {string} letter - The letter to be added to the board.
-   * @return {boolean} True if the letter was successfully added, false otherwise.
-   */
-  addLetter(player: Player, x: number, y: number, letter: string): boolean {
-    // Here goes the logic to add the letter to the board.
-    // Should also verify that the move is valid and that the word hasn't been used.
-    if (this.checkMove(player, x, y, letter)) {
-      this.board[x][y] = letter
       return true
     }
 
     return false
   }
 
-  checkMove(player: Player, x: number, y: number, letter: string): boolean {
-    // Check if the coordinates are within the game board
-    if (x < 0 || x >= this.size || y < 0 || y >= this.size) {
-      consola.log('Invalid move: Position out of bounds.')
-      return false
+  get(position: Position): Cell | null {
+    // out of bounds
+    if (
+      position[0] < 0 || position[0] >= this.size
+      || position[1] < 0 || position[1] >= this.size
+    )
+      return null
+
+    const letter = this.board[position[0]][position[1]]
+    return {
+      letter,
+      position,
+
+      isEmpty: letter === EMPTY,
     }
-
-    // Check if the space is not already occupied
-    if (this.board[x][y] !== EMPTY_MARK) {
-      consola.log('Invalid move: The spot is already occupied.')
-      return false
-    }
-
-    // Check if the player's letter is in their own set of letters
-    if (!player.getLetters().includes(letter)) {
-      consola.log('Invalid move: The player does not have this letter.')
-      return false
-    }
-
-    return true
-  }
-
-  // Returns which player's turn is it
-  getNextPlayer(): Player {
-    return this._players[this._turn % this._players.length]!
-  }
-
-  /**
-  * Returns the player object with the highest score.
-  *
-  * @return {Player} The player object with the highest score.
-  */
-  getWinner(): Player {
-    for (let i = 0; i < this._players.length - 1; i++) {
-      if (this._players[i]!.score > this._players[i + 1]!.score)
-        return this._players[i]
-    }
-
-    return this._players[0]
-  }
-
-  /**
-  * Check if the game is over.
-  *
-  * @return {boolean} True if the game is over, false otherwise.
-  */
-  isOver(): boolean {
-    // if the whole board is full, the game is over
-    for (let i = 0; i < this.size; i++) {
-      for (let j = 0; j < this.size; j++) {
-        if (this.board[i][j] === EMPTY_MARK)
-          return false
-      }
-    }
-
-    return true
-  }
-
-  static createBoard(size: number, word?: string): string[][] {
-    const board = Array.from({ length: size }, () => Array(size).fill(EMPTY_MARK))
-
-    if (word) {
-      const wordStart: Position = [
-        Math.floor(size / 2),
-        Math.floor(size / 2) - Math.floor(word.length / 2),
-      ]
-      for (let j = 0; j < word.length; j++)
-        board[wordStart[0]][wordStart[1] + j] = word[j]
-    }
-
-    return board
   }
 }
 
-export { Game }
+interface GameState {
+  board: Board
+  players: Player[]
+
+  status: 'playing' | 'over'
+}
+
+class Game {
+  private readonly _id: string
+  private readonly _players: Player[]
+
+  private _turn: number
+  private _board: Board
+
+  get turn(): number {
+    return this._turn
+  }
+
+  get board(): Board {
+    return this._board
+  }
+
+  constructor(id: string, players: Player[], size: number, word: string) {
+    this._id = id
+    this._players = players
+
+    // Start with the first player
+    this._turn = 0
+    this._board = new Board(size, word)
+  }
+
+  async *next(): AsyncGenerator<void> {
+    let skipped = 0
+    while (!this._board.isFull && skipped < 2) {
+      const player = this.getPlayer()
+      const move = await player.move(this)
+      this._turn++
+
+      if (!move) {
+        skipped++
+        continue
+      }
+
+      skipped = 0
+      yield move
+    }
+
+    const state = this.getState()
+    consola.info('State:', state)
+  }
+
+  getPlayer(): Player {
+    return this._players[this._turn % this._players.length]!
+  }
+
+  getState(): GameState {
+    return {
+      status: 'playing',
+      board: this._board,
+      players: this._players,
+    }
+  }
+}
+
+export { Game, Board, Cell }
