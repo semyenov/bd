@@ -1,7 +1,6 @@
 import { consola } from 'consola'
 
 import type { Player } from './player'
-
 import type { Position } from './utils'
 
 const EMPTY = '_'
